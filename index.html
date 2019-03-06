@@ -1,0 +1,71 @@
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>leafletbug?</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+</head>
+
+<body>
+    <div id="map" style="width:100%; height: 100%;"></div>
+    <script>
+        const map = L.map(document.getElementById('map')).setView(latlng, 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+            maxZoom: 18
+        }).addTo(map);
+
+        const latlngs = [];
+        const lines = [];
+        const polygon = L.polygon([], { color: 'red', weight: 7, bubblingMouseEvents: false });
+        polygon.addTo(map);
+
+        map.on('click', (e) => {
+            latlngs.push(e.latlng);
+            polygon.setLatLngs(latlngs);
+        });
+
+        map.on('mousemove', (e) => {
+            if (latlngs.length < 3) return;
+
+            // if (lines.length) return;
+            for (const line of lines) {
+                line.off();
+                line.remove();
+                try {
+                    line.unbindTooltip();
+                } catch (e) { }
+            }; lines.length = 0;
+
+            // calc new lines
+            const p3 = L.Projection.Mercator.project(e.latlng);
+
+            latlngs.forEach((lat1, idx) => {
+                const lat2 = ((idx + 1 === latlngs.length) ? latlngs[0] : latlngs[idx + 1]);
+
+                const p1 = L.Projection.Mercator.project(lat1);
+                const p2 = L.Projection.Mercator.project(lat2);
+
+                const lineVec = p2.subtract(p1);  // segment vector
+                const clickVec = p3.subtract(p1); // click vector
+
+                const latmiddleonline = L.Projection.Mercator.unproject(L.point(p1.x + lineVec.x / 2, p1.y + lineVec.y / 2));
+
+                const pl4 = L.polyline([latmiddleonline, e.latlng], { color: 'green', weight: 5 }).addTo(map);
+                lines.push(pl4);
+
+                const m = L.marker(latmiddleonline).addTo(map);
+                lines.push(m);
+
+
+                pl4.bindTooltip(`${L.LineUtil.pointToSegmentDistance(clickVec, L.point(0, 0), lineVec)/*latmiddleonline.distanceTo(e.latlng)*/.toFixed(3)} m`);
+
+                pl4.openTooltip(latmiddleonline);
+                pl4.redraw();
+            });
+        });
+    </script>
+</body>
+
+</html>
